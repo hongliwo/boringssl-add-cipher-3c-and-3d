@@ -197,6 +197,33 @@ static constexpr SSL_CIPHER kCiphers[] = {
      SSL_HANDSHAKE_MAC_DEFAULT,
     },
 
+
+	// TLS v1.2 ciphersuites
+
+	// Cipher 3C
+	{
+		TLS1_TXT_RSA_WITH_AES_128_SHA256,
+		"TLS_RSA_WITH_AES_128_CBC_SHA256",
+		TLS1_CK_RSA_WITH_AES_128_SHA256,
+		SSL_kRSA,
+		SSL_aRSA,
+		SSL_AES128,
+		SSL_SHA256,
+		SSL_HANDSHAKE_MAC_SHA256,
+	},
+
+	// Cipher 3D
+	{
+		TLS1_TXT_RSA_WITH_AES_256_SHA256,
+		"TLS_RSA_WITH_AES_256_CBC_SHA256",
+		TLS1_CK_RSA_WITH_AES_256_SHA256,
+		SSL_kRSA,
+		SSL_aRSA,
+		SSL_AES256,
+		SSL_SHA256,
+		SSL_HANDSHAKE_MAC_SHA256,
+	},
+
     // PSK cipher suites.
 
     // Cipher 8C
@@ -335,17 +362,17 @@ static constexpr SSL_CIPHER kCiphers[] = {
      SSL_HANDSHAKE_MAC_DEFAULT,
     },
 
-    // Cipher C027
-    {
-     TLS1_TXT_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-     "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
-     TLS1_CK_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-     SSL_kECDHE,
-     SSL_aRSA,
-     SSL_AES128,
-     SSL_SHA256,
-     SSL_HANDSHAKE_MAC_SHA256,
-    },
+	// Cipher C027
+	{
+		TLS1_TXT_ECDHE_RSA_WITH_AES_128_SHA256,
+		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+		TLS1_CK_ECDHE_RSA_WITH_AES_128_SHA256,
+		SSL_kECDHE,
+		SSL_aRSA,
+		SSL_AES128,
+		SSL_SHA256,
+		SSL_HANDSHAKE_MAC_SHA256,
+	},
 
     // GCM based TLS v1.2 ciphersuites from RFC 5289
 
@@ -554,6 +581,7 @@ static const CIPHER_ALIAS kCipherAliases[] = {
     // MAC aliases
     {"SHA1", ~0u, ~0u, ~0u, SSL_SHA1, 0},
     {"SHA", ~0u, ~0u, ~0u, SSL_SHA1, 0},
+	{"SHA256", ~0u, ~0u, ~0u, SSL_SHA256, 0},
 
     // Legacy protocol minimum version aliases. "TLSv1" is intentionally the
     // same as "SSLv3".
@@ -642,15 +670,19 @@ bool ssl_cipher_get_evp_aead(const EVP_AEAD **out_aead,
     }
 
     *out_mac_secret_len = SHA_DIGEST_LENGTH;
-  } else if (cipher->algorithm_mac == SSL_SHA256) {
-    if (cipher->algorithm_enc == SSL_AES128) {
-      *out_aead = EVP_aead_aes_128_cbc_sha256_tls();
-    } else {
-      return false;
-    }
+  }
+  else if (cipher->algorithm_mac == SSL_SHA256) {
+	  if (cipher->algorithm_enc == SSL_AES128) {
+		  *out_aead = EVP_aead_aes_128_cbc_sha256_tls();
+	  } else if (cipher->algorithm_enc == SSL_AES256) {
+		  *out_aead = EVP_aead_aes_256_cbc_sha256_tls();
+	  } else {
+		  return false;
+	  }
 
-    *out_mac_secret_len = SHA256_DIGEST_LENGTH;
-  } else {
+	  *out_mac_secret_len = SHA256_DIGEST_LENGTH;
+  } 
+  else {
     return false;
   }
 
@@ -1166,6 +1198,8 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
       TLS1_CK_RSA_WITH_AES_128_SHA & 0xffff,
       TLS1_CK_PSK_WITH_AES_128_CBC_SHA & 0xffff,
       TLS1_CK_RSA_WITH_AES_256_SHA & 0xffff,
+      TLS1_CK_RSA_WITH_AES_128_SHA256 & 0xffff,
+	  TLS1_CK_RSA_WITH_AES_256_SHA256 & 0xffff,
       TLS1_CK_PSK_WITH_AES_256_CBC_SHA & 0xffff,
       SSL3_CK_RSA_DES_192_CBC3_SHA & 0xffff,
   };
@@ -1210,6 +1244,9 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
     assert(co_list[num - 1].cipher != nullptr);
   }
   assert(num == OPENSSL_ARRAY_SIZE(co_list));
+  static_assert(OPENSSL_ARRAY_SIZE(kCiphers)==26);
+  static_assert(NumTLS13Ciphers()==3);
+  static_assert(OPENSSL_ARRAY_SIZE(co_list)==23);
   static_assert(OPENSSL_ARRAY_SIZE(co_list) + NumTLS13Ciphers() ==
                     OPENSSL_ARRAY_SIZE(kCiphers),
                 "Not all ciphers are included in the cipher order");
